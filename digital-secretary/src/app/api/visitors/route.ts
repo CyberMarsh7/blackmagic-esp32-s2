@@ -4,6 +4,8 @@ import { json, badRequest, tooManyRequests, unauthorized } from "@/lib/server/re
 import { VisitorCreateSchema } from "@/lib/server/validation";
 import { keyFor, rateLimit } from "@/lib/server/rateLimit";
 import { verifyAdminJwt } from "@/lib/server/auth";
+import { getEnv } from "@/lib/server/env";
+import { sendEmail } from "@/lib/server/email";
 
 function getClientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for") ?? "";
@@ -62,6 +64,17 @@ export async function POST(req: Request) {
       contactName: parse.data.contactName ?? undefined,
     },
   });
-
+  // Notify via email if configured
+  try {
+    const env = getEnv();
+    const notifyTo = env.email.from; // You can change to owner email if provided
+    await sendEmail({
+      to: notifyTo,
+      subject: `New Visitor${visitor.contactName ? `: ${visitor.contactName}` : ""}`,
+      text: `New visitor at ${visitor.createdAt.toISOString()}\nIP: ${visitor.ip ?? "unknown"}\nUA: ${visitor.userAgent ?? ""}`,
+    });
+  } catch {
+    // ignore email errors in public endpoint
+  }
   return json(visitor, { status: 201 }, req);
 }

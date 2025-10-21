@@ -1,103 +1,116 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [input, setInput] = useState("");
+  const evtRef = useRef<EventSource | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((s) => setIsAvailable(Boolean(s.isAvailable)))
+      .catch(() => {});
+    const es = new EventSource("/api/status/stream");
+    es.onmessage = () => {};
+    es.addEventListener("status", (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data);
+        setIsAvailable(Boolean(data.isAvailable));
+      } catch {}
+    });
+    evtRef.current = es;
+    return () => {
+      es.close();
+    };
+  }, []);
+
+  async function sendMessage() {
+    const content = input.trim();
+    if (!content) return;
+    setMessages((m) => [...m, { role: "user", content }]);
+    setInput("");
+    const resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sessionId ?? undefined, message: content }),
+    });
+    const data = await resp.json();
+    if (data.sessionId && !sessionId) setSessionId(data.sessionId);
+    if (data.message?.content) setMessages((m) => [...m, { role: "assistant", content: data.message.content }]);
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900">
+      <div className="max-w-5xl mx-auto p-6">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Digital Secretary</h1>
+          <div className="flex items-center gap-2">
+            <div className={`relative w-10 h-6 rounded-full ${isAvailable ? "bg-green-500" : "bg-gray-400"}`}>
+              <div
+                className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                  isAvailable ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </div>
+            <span className="text-sm">{isAvailable === null ? "..." : isAvailable ? "Available" : "Away"}</span>
+          </div>
+        </header>
+
+        <main className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <section className="rounded-xl border bg-white shadow p-6">
+            <h2 className="font-semibold mb-2">Welcome</h2>
+            <p className="text-sm text-slate-600">Come on in. The secretary will take your message.</p>
+            <div className="mt-6 relative h-40 bg-slate-200 rounded-lg overflow-hidden">
+              <div
+                className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-36 bg-amber-700 rounded-t-sm transition-transform duration-700 origin-left ${
+                  isAvailable ? "-rotate-40" : "rotate-0"
+                }`}
+                aria-label="Door"
+              />
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-slate-500" />
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-white shadow p-6 flex flex-col h-[420px]">
+            <h2 className="font-semibold mb-2">Chat</h2>
+            <div className="flex-1 overflow-auto space-y-3 pr-1">
+              {messages.map((m, i) => (
+                <div key={i} className={`text-sm ${m.role === "user" ? "text-right" : "text-left"}`}>
+                  <span
+                    className={`inline-block px-3 py-2 rounded-lg max-w-[85%] ${
+                      m.role === "user" ? "bg-sky-600 text-white" : "bg-slate-100"
+                    }`}
+                  >
+                    {m.content}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                placeholder="Say hello..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendMessage();
+                }}
+              />
+              <button
+                className="px-4 py-2 rounded-lg bg-sky-600 text-white text-sm disabled:opacity-50"
+                onClick={sendMessage}
+                disabled={!input.trim()}
+              >
+                Send
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

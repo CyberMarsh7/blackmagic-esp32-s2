@@ -8,5 +8,5 @@ export async function OPTIONS(req: Request) {
 export async function GET(req: Request) {
   const { stream } = createSseStream();
   const headers = { ...sseHeaders(), ...corsHeaders(req.headers.get("origin")) };
-  return new Response(stream as any, { headers });
+  return new Response(stream as unknown as ReadableStream, { headers });
 }

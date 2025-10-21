@@ -14,11 +14,11 @@ export async function generateAIResponse(messages: AIMessage[]): Promise<string>
       max_tokens: 512,
       messages: messages
         .filter((m) => m.role !== "system")
-        .map((m) => ({ role: m.role as any, content: m.content })),
+        .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
       system: messages.find((m) => m.role === "system")?.content,
     });
-    const out = resp.content.find((c) => c.type === "text") as any;
-    return out?.text ?? "";
+    const textBlock = resp.content.find((c) => (c as { type?: string }).type === "text");
+    return (textBlock as { type: string; text?: string } | undefined)?.text ?? "";
   }
 
   if (!env.ai.openaiApiKey) throw new Error("OPENAI_API_KEY is required");

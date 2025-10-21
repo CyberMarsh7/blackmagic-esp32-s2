@@ -42,9 +42,9 @@ export async function POST(req: Request) {
   });
 
   const aiInput = [
-    { role: "system", content: SYSTEM_PROMPT as const },
-    ...history.map((m) => ({ role: m.role as any, content: m.content })),
-  ];
+    { role: "system", content: SYSTEM_PROMPT },
+    ...history.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
+  ] as { role: "system" | "user" | "assistant"; content: string }[];
 
   const aiReply = await generateAIResponse(aiInput);
 

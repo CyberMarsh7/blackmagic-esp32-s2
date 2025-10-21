@@ -26,7 +26,8 @@ export async function verifyAdminJwt(authorizationHeader?: string): Promise<Admi
     const { jwtSecret } = getEnv();
     const key = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, key);
-    if ((payload as any).role !== "admin" || typeof payload.sub !== "string") return null;
+    const role = (payload as Record<string, unknown>)["role"];
+    if (role !== "admin" || typeof payload.sub !== "string") return null;
     return { sub: payload.sub, role: "admin" };
   } catch {
     return null;

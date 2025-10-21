@@ -8,7 +8,10 @@ export async function OPTIONS(req: Request) {
   return preflight(req) ?? new Response(null, { status: 204 });
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parts[parts.length - 1] ?? "";
   const auth = await verifyAdminJwt(req.headers.get("authorization") ?? undefined);
   if (!auth) return unauthorized("Admin token required", req);
 
@@ -16,7 +19,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   if (!rateLimit(rlKey, { tokensPerInterval: 60 })) return tooManyRequests("Slow down", req);
 
   const visitor = await prisma.visitor.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { messages: true, chatSessions: true },
   });
   if (!visitor) return notFound("Visitor not found", req);

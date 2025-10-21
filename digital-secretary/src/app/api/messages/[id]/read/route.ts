@@ -9,8 +9,10 @@ export async function OPTIONS(req: Request) {
   return preflight(req) ?? new Response(null, { status: 204 });
 }
 
-export async function PATCH(req: Request, context: any) {
-  const { params } = context as { params: { id: string } };
+export async function PATCH(req: Request) {
+  const url = new URL(req.url);
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id = parts[parts.length - 2] ?? ""; // .../messages/{id}/read
   const auth = await verifyAdminJwt(req.headers.get("authorization") ?? undefined);
   if (!auth) return unauthorized("Admin token required", req);
 
@@ -28,7 +30,7 @@ export async function PATCH(req: Request, context: any) {
 
   const updated = await prisma.message
     .update({
-      where: { id: params.id },
+      where: { id },
       data: { readStatus: parse.data.read },
     })
     .catch(() => null);

@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Digital Secretary Web Application
+=================================
 
-## Getting Started
+Full-stack Next.js application that serves as a digital secretary / receptionist for a personal domain. It logs visitors, provides real-time availability status with SSE, supports a chat interface backed by a conversational AI, and includes admin endpoints.
 
-First, run the development server:
+Features
+--------
+- Visitor logging (SQLite dev via Prisma)
+- Real-time status updates (Server-Sent Events)
+- Messaging queue and read state
+- Conversational AI chat with stored history (OpenAI or Anthropic)
+- Admin auth via JWT and settings endpoints
+- CORS, rate limiting, input validation (Zod)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Tech Stack
+---------
+- Next.js 15 (App Router), TypeScript, Tailwind CSS
+- Prisma ORM (SQLite dev, compatible with Postgres prod)
+- Zod validation, jose JWT, SSE
+- OpenAI and Anthropic SDKs (optional)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Getting Started
+---------------
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure environment:
+   - Edit `.env` and set values:
+     - `JWT_SECRET` (required)
+     - `DEVICE_API_KEY` (for external status updates)
+     - `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` if using AI
+3. Initialize DB:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+4. Run dev server:
+   ```bash
+   npm run dev
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Key API Endpoints
+-----------------
+- GET `/api/status` – current availability
+- POST `/api/status` – update from device (header: `x-api-key`)
+- PUT `/api/status/manual` – admin manual override (Bearer token)
+- GET `/api/status/stream` – SSE stream for status changes
+- POST `/api/visitors` – log new visitor
+- GET `/api/visitors` – list visitors (admin)
+- GET `/api/visitors/:id` – visitor details (admin)
+- POST `/api/messages` – submit message
+- GET `/api/messages` – list messages (admin)
+- PATCH `/api/messages/:id/read` – toggle read status (admin)
+- POST `/api/chat` – send message to AI
+- GET `/api/chat/history/:session_id` – conversation history
+- POST `/api/admin/login` – admin login (returns JWT)
+- GET `/api/admin/dashboard` – basic stats
+- PUT `/api/admin/settings` – update settings
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Security
+--------
+- Public endpoints are rate-limited
+- Admin routes require `Authorization: Bearer <token>`
+- Device updates require `X-API-Key: <DEVICE_API_KEY>`
+- CORS allowed origins configurable via `CORS_ALLOWED_ORIGINS`
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy
+------
+- Set production environment variables
+- Switch Prisma datasource to Postgres in `prisma/schema.prisma` and `DATABASE_URL`
+- Run `prisma migrate deploy`

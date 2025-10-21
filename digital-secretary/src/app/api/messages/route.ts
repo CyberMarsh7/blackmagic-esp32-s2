@@ -4,6 +4,8 @@ import { json, badRequest, tooManyRequests, unauthorized } from "@/lib/server/re
 import { MessageCreateSchema } from "@/lib/server/validation";
 import { keyFor, rateLimit } from "@/lib/server/rateLimit";
 import { verifyAdminJwt } from "@/lib/server/auth";
+import { getEnv } from "@/lib/server/env";
+import { sendEmail } from "@/lib/server/email";
 
 export async function OPTIONS(req: Request) {
   return preflight(req) ?? new Response(null, { status: 204 });
@@ -47,5 +49,16 @@ export async function POST(req: Request) {
       visitorId: parse.data.visitorId ?? undefined,
     },
   });
+  try {
+    const env = getEnv();
+    const notifyTo = env.email.from;
+    await sendEmail({
+      to: notifyTo,
+      subject: `New Message${created.visitorId ? ` from ${created.visitorId}` : ""}`,
+      text: created.message,
+    });
+  } catch {
+    // ignore email errors
+  }
   return json(created, { status: 201 }, req);
 }
