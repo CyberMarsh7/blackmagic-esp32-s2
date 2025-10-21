@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core domain models for the Digital Secretary application
+
+model Visitor {
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  ip            String?
+  userAgent     String?
+  locationData  Json?
+  contactEmail  String?
+  contactName   String?
+  messages      Message[]
+  chatSessions  ChatSession[]
+
+  @@index([createdAt])
+  @@index([ip, createdAt])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  message    String
+  readStatus Boolean   @default(false)
+
+  // Optional association to a Visitor record
+  visitor    Visitor?  @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  visitorId  String?
+
+  @@index([visitorId, createdAt])
+}
+
+// Singleton row storing current availability and any override state
+model Status {
+  id             Int       @id @default(1)
+  isAvailable    Boolean   @default(false)
+  manualOverride Boolean   @default(false)
+  // updatedAt automatically reflects last change time
+  lastUpdated    DateTime  @updatedAt
+  overrideUntil  DateTime?
+  updatedBy      String?
+}
+
+// Singleton row storing configuration as JSON documents
+model Settings {
+  id                       Int      @id @default(1)
+  notificationPreferences  Json?
+  aiConfiguration          Json?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model ChatSession {
+  // Public session identifier used by API routes
+  id          String        @id @default(cuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  visitor     Visitor?      @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  visitorId   String?
+
+  messages    ChatMessage[]
+
+  meta        Json?
+
+  @@index([visitorId, createdAt])
+}
+
+model ChatMessage {
+  id         String       @id @default(cuid())
+  createdAt  DateTime     @default(now())
+  role       ChatRole
+  content    String
+  meta       Json?
+
+  session    ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+
+  @@index([sessionId, createdAt])
+}
+
+enum ChatRole {
+  system
+  user
+  assistant
+}
